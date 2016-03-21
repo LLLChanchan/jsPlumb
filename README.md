@@ -1,4 +1,4 @@
-# jsPlumb 
+# jsPlumb 基本概念
 
 ---
 
@@ -308,13 +308,286 @@ eg：
 - `cssClass` ：可选的，端点元素的CSS类。
 - `hoverClass` ：可选的，元素或连线的hover属性样式类
 
-## 五、覆盖(Overlays)
+## 五、覆盖（连接元素）(Overlays)
 
 ### 简介
 
 jsPlumb带有五个类型的覆盖图:
 - Arrow(箭头) ：一个可配置的箭头，在某些点上涂上了一个可配置的箭头。你可以控制箭头的长度和宽度，“折返”点一点尾巴分折回来，和方向（允许值为1和1；1是默认的，意味着在连接点方向）
-- Label(标签)：
-- PlainArrow(平原箭头)：
-- Diamond(钻石)：
-- Custom(自定义)：
+- Label(标签)：一个可配置的连线标签
+- PlainArrow(平原箭头)：没有监听的三角形箭头
+- Diamond(钻石)：钻石箭头
+- Custom(自定义)：可自定义DOM元素
+
+### 位置
+
+位置表明连接元素在连接线的位置，通常有三种表明方式：
+
+- [0 . . 1]范围内的十进制数，表明在连接线的位置比例，默认0.5
+- [1 . . . ] (>1)的数字表明沿着连接线的绝对路径的像素
+- 小于零的整数数组:
+	(1):指定一个覆盖在端点的中心位置：
+
+		location:[ 0.5, 0.5 ]
+
+	(2):沿着x轴从左上角叠加5像素
+
+		location: [ 5, 0 ]
+
+	(3):沿着x轴从右下角叠加放置5像素
+
+		location: [ -5, 0 ]
+
+对于位置的操作，jsPlumb提供了两个方法：
+
+- getLocation ——返回当前位置
+- setLocation ——设置当前位置
+
+### 使用
+
+使用场景(出现以下调用的时候)：
+
+- `jsPlumb.connect`
+- `jsPlumb.addEndpoint`
+- jsPlumb.makeSource
+
+注： 没有 `jsPlumb.makeTarget`
+
+#### 1. 在 `jsPlumb.connect` 被调用时使用
+
+(1). 下面指定了 一个默认配置的箭头和一个文字为foo的标签文本：
+
+	jsPlumb.connect({
+	  ...
+	  overlays:[ 
+	    "Arrow", 
+	      [ "Label", { label:"foo", location:0.25, id:"myLabel" } ]
+	    ],
+	  ...
+	});
+
+此连接的箭头在连接线的中间，lable标签则是在连接线的四分之一处；这里添加了一个id，它可以在以后移除或修改标签时使用。
+
+(2). 箭头位置位于连接线距离50像素(绝对位置):
+
+	jsPlumb.connect({
+	  ...
+	  overlays:[ 
+	    "Arrow", 
+	      [ "Label", { label:"foo", location:50, id:"myLabel" } ]
+	    ],
+	    ...
+	});
+
+#### 2. 在 `jsPlumb.addEndpoint` 被调用时使用
+
+此连接将有10x30像素箭坐落在连接头，标签“foo”则位于中点。端点本身也有一个覆盖，位于[ - 0.5 *宽，- 0.5 *高]相对于端点的左上角。
+
+	jsPlumb.addEndpoint("someDiv", {
+	  ...
+	  overlays:[
+	    [ "Label", { label:"foo", id:"label", location:[-0.5, -0.5] } ]
+	  ],
+	  connectorOverlays:[ 
+	    [ "Arrow", { width:10, length:30, location:1, id:"arrow" } ],
+	    [ "Label", { label:"foo", id:"label" } ]
+	  ],
+	  ...
+	});
+
+注：在addEndpoint 使用 `connectorOverlays` 代替 `overlays`，因为 `overlays`指向端点覆盖。
+
+#### 3. 在 jsPlumb.makeSource
+
+同样使用 `connectorOverlays`，而且 `makeSource` 支持 `endpoint` 参数。
+此连接将有10x30像素箭坐落在连接头，标签“foo”位于中点。
+
+	jsPlumb.makeSource("someDiv", {
+	  ...
+	  endpoint:{
+	    connectorOverlays:[ 
+	      [ "Arrow", { width:10, length:30, location:1, id:"arrow" } ], 
+	      [ "Label", { label:"foo", id:"label" } ]
+	    ]
+	  }
+	  ...
+	});
+
+#### 4. `addOverlay` 方法
+
+`Endpoints` 和 `Connections` 都有一个方法： `addOverlay`，它提供一个单一的方法定义一个 覆盖(Overlays):
+
+	var e = jsPlumb.addEndpoint("someElement");
+	e.addOverlay([ "Arrow", { width:10, height:10, id:"arrow" }]); 
+
+### Overlay Types（覆盖类型）
+
+#### 1. Arrow(箭头)
+
+一个箭头 使用四个点：头、两个尾点和一个foldback(监听)，它允许箭头的箭尾缩进。此覆盖的可用构造函数参数：
+
+- width：宽度
+- length：长度
+- location：在连接线上的位置
+- direction：默认1-向前，-1向后
+- foldback：箭头沿轴到尾点的监听。默认是0.623
+- paintStyle：`Endpoints` 和 `Connectors` 的样式对象
+
+#### 2. PlainArrow（平原箭头）
+这其实就是一个 foldback=1 的 Arror；继承Arror的构造函数
+
+#### 3. Diamond（菱形）
+
+这其实就是一个 foldback=2 的 Arror；继承Arror的构造函数
+
+#### 4. Label（标签）
+
+(1) 介绍
+
+提供装饰连接器的文本标签。可用的构造函数参数是：
+
+- label : 文本显示。 您可以提供一个函数,而不是纯文本:连接作为一个参数传递,它应该返回一个字符串。
+- cssClass :可选的css类使用的标签。现在优先使用 labelStyle 参数。
+- labelStyle ： 可选参数标签的外观。 可用参数有：
+	- font ：一种适用于画布元素的字体字符串
+	- fillStyle ：标签的背景颜色填充，可选。
+	- color ：字体颜色，可选
+	- padding ：表示标签的宽度的比例，而不是px和ems。
+	- borderWidth ：标签的边框宽度，默认0
+	- borderStyle ：标签边框的样式，可选
+- location ：标签位置
+
+(2). `getLabel` 和 `setLabel`
+
+标签覆盖提供了两个方法 `getLabel` 和 `setLabel` 用于动态地get/set标签内容:
+
+	var c = jsPlumb.connect({
+	  source:"d1", 
+	  target:"d2", 
+	  overlays:[
+	    [ "Label", {label:"FOO", id:"label"}]
+	  ] 
+	});
+	
+	...
+	
+	var label = c.getOverlay("label");
+	console.log("Label is currently", label.getLabel());
+	label.setLabel("BAR");
+	console.log("Label is now", label.getLabel());
+
+这个例子里，标签被赋予一个id ‘label’，然后检索这个id动态设置lable的值。
+
+Connections 和 Endpoints 都支持 标签覆盖：
+
+	var conn = jsPlumb.connect({
+	  source:"d1", 
+	  target:"d2",
+	  label:"FOO"
+	});
+	
+	...
+	
+	console.log("Label is currently", conn.getLabel());
+	conn.setLabel("BAR");
+	console.log("Label is now", conn.getLabel());
+
+(3). 动态设置label
+
+	var conn = jsPlumb.connect({
+	  source:"d1", 
+	  target:"d2"
+	});                 
+	
+	...
+	
+	conn.setLabel(function(c) {
+	  var s = new Date();
+	  return s.getTime() + "milliseconds have elapsed since 01/01/1970";
+	});
+	console.log("Label is now", conn.getLabel());
+
+#### 5. Custom（自定义）
+
+jsPlumb允许自定义一个 OverLays，你只需要实现 create(component)：
+
+	var conn = jsPlumb.connect({
+	  source:"d1",
+	  target:"d2",
+	  paintStyle:{
+	    strokeStyle:"red",
+	    lineWidth:3
+	  },
+	  overlays:[
+	    ["Custom", {
+	      create:function(component) {
+	        return $("<select id='myDropDown'><option value='foo'>foo</option><option value='bar'>bar</option></select>");                
+	      },
+	      location:0.7,
+	      id:"customOverlay"
+	    }]
+	  ]
+	});
+
+注意 此处的id为 `customeOverlay` ，你可以在 Connection 或者 Endpoint上使用 `getOverlay(id) ` 方法。
+
+### 隐藏/显示 Overlays（覆盖）
+
+可以使用 `setVisible` 方法控制 `Overlays` 的显示属性，或者在一个连接上使用 `showOverlay(id)` 和 `hideOverlay(id)`。
+
+(1). 使用id：
+
+	var connection = jsPlumb.connect({
+	  ...
+	  overlays:[ 
+	    "Arrow", 
+	    [ "Label", { label:"foo", location:0.25, id:"myLabel" } ]
+	  ],
+	  ...
+	});
+	
+	// time passes
+	
+	var overlay = connection.getOverlay("myLabel");
+	// now you can hide this Overlay:
+	overlay.setVisible(false);
+	// there are also hide/show methods:
+	overlay.show();
+	overlay.hide();
+
+(2). 使用 `showOverlay(id)` 和 `hideOverlay(id)`：
+
+Connection 和 Endpoint 可以使用`showOverlay(id)` 和 `hideOverlay(id)`：
+
+	var connection = jsPlumb.connect({
+	  ...
+	  overlays:[ 
+	    "Arrow", 
+	    [ "Label", { label:"foo", location:-30 , id:"myLabel" }]
+	  ],
+	  ...
+	});
+	
+	// time passes
+	
+	connection.hideOverlay("myLabel");
+	
+	// more time passes
+	
+	connection.showOverlay("myLabel");
+
+### 删除 Overlays(覆盖)
+
+	var connection = jsPlumb.connect({
+	  ...
+	  overlays:[ 
+	    "Arrow", 
+	    [ "Label", { label:"foo", location:0.25 , id:"myLabel"} ]
+	  ],
+	  ...
+	});     
+	
+	// time passes
+	
+	connection.removeOverlay("myLabel");
+
